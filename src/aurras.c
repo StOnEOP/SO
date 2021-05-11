@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
         int fifo_clientServer = open("fifo_clientServer", O_WRONLY);
         int fifo_serverClient = open("fifo_serverClient", O_RDONLY);
         
-        strcpy(toServer, "info");
+        strcpy(toServer, "4.");
         if (write(fifo_clientServer, toServer, strlen(toServer)) < 0) {
             perror("Erro\n\tEscrita no fifo clientServer\n");
             close(fifo_clientServer);
@@ -58,8 +58,8 @@ int main(int argc, char *argv[]) {
         caseS = transformInput(argv[1]);
 
         switch(caseS) {
-            case 1:     // Transform
-                strcpy(toServer, "transform -");
+            case 1:     // Transform (1)
+                strcpy(toServer, "1: -");
                 int c1 = 2;
                 while (c1 < argc) {
                     strcat(toServer, argv[c1++]);
@@ -67,11 +67,11 @@ int main(int argc, char *argv[]) {
                         strcat(toServer, " -");
                 }
                 break;
-            case 2:     // Status
-                strcpy(toServer, "status");
+            case 2:     // Status (2)
+                strcpy(toServer, "2:");
                 break;
-            case 3:     // Exec server
-                strcpy(toServer, "exec -");
+            case 3:     // Exec server (3)
+                strcpy(toServer, "3: -");
                 int c3 = 1;
                 while (c3 < argc) {
                     strcat(toServer, argv[c3++]);
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
                 }
                 break;
             default:
-                strcpy(toServer, "default");
+                strcpy(toServer, "0:");
                 break;
         }
         int fifo_clientServer = open("fifo_clientServer", O_WRONLY);

@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c99 -Wextra -g -O2 -Wall
+CFLAGS = -Wextra -g -O2 -Wall
 INCLUDES = includes
 SRC = src
 OBJ = obj
