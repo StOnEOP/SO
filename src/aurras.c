@@ -35,11 +35,11 @@ int main(int argc, char *argv[]) {
         int fifo_clientServer = open("fifo_clientServer", O_WRONLY);
         int fifo_serverClient = open("fifo_serverClient", O_RDONLY);
         
-        strcpy(toServer, "4.");
+        strcpy(toServer, "ajuda");
         if (write(fifo_clientServer, toServer, strlen(toServer)) < 0) {
             perror("Erro\n\tEscrita no fifo clientServer\n");
-            close(fifo_clientServer);
-            close(fifo_serverClient);
+            //close(fifo_clientServer);
+            //close(fifo_serverClient);
             return -1;
         }
         close(fifo_clientServer);
@@ -48,37 +48,41 @@ int main(int argc, char *argv[]) {
         while ((bytesread = read(fifo_serverClient, fromServer, MAX)) > 0)
             if (write(STDOUT_FILENO, fromServer, bytesread) < 0) {
                 perror("Erro\n\tEscrita no stdout\n");
-                close(fifo_serverClient);
+                //close(fifo_serverClient);
                 return -1;
             }
         close(fifo_serverClient);
     }
+
     else {
         int caseS = 0;
         caseS = transformInput(argv[1]);
 
         switch(caseS) {
             case 1:     // Transform (1)
-                strcpy(toServer, "1: -");
+                strcpy(toServer, "transform ");
                 int c1 = 2;
                 while (c1 < argc) {
                     strcat(toServer, argv[c1++]);
                     if (c1 < argc)
-                        strcat(toServer, " -");
+                        strcat(toServer, " ");
                 }
                 break;
+
             case 2:     // Status (2)
-                strcpy(toServer, "2:");
+                strcpy(toServer, "status");
                 break;
+
             case 3:     // Exec server (3)
-                strcpy(toServer, "3: -");
+                strcpy(toServer, "config");
                 int c3 = 1;
                 while (c3 < argc) {
                     strcat(toServer, argv[c3++]);
                     if (c3 < argc)
-                        strcat(toServer, " -");
+                        strcat(toServer, " ");
                 }
                 break;
+
             default:
                 strcpy(toServer, "0:");
                 break;
@@ -88,8 +92,6 @@ int main(int argc, char *argv[]) {
 
         if (write(fifo_clientServer, toServer, strlen(toServer)) < 0) {
             perror("Erro\n\t- escrita no fifo clientServer\n");
-            close(fifo_clientServer);
-            close(fifo_serverClient);
             return -1;
         }
         close(fifo_clientServer);
@@ -98,7 +100,6 @@ int main(int argc, char *argv[]) {
         while ((bytesread = read(fifo_serverClient, fromServer, MAX)) > 0)
             if (write(STDOUT_FILENO, fromServer, bytesread) < 0) {
                 perror("Erro\n\t- escrita no stdout\n");
-                close(fifo_serverClient);
                 return -1;
             }
         close(fifo_serverClient);
