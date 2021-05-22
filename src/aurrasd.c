@@ -7,9 +7,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <sys/wait.h>
 
 #include "../includes/aurrasd.h"
 #define MAX 2048
+
+//Teste
+// ./aurrasd aurrasd2.conf filters-folder
 
 struct filter{
     char name[50]; 
@@ -76,13 +80,13 @@ void sigchld_handler(int sig){
     int status;
     pid_t pid;
     while((pid = waitpid(-1, &status, WNOHANG)) > 0){
-        for(int i = 0; i <= task_number; i++){
+        for(int i = 0; i <= task_number-1; i++){
             if(WEXITSTATUS(status) == 1){
                 kill(pid, SIGTERM);
                 task_status[i] = "ERROR";
                 break;
             }
-            else if(task_status[i] == "EXECUTING"){
+            else if(strcmp(task_status[i], "EXECUTING") == 0){
                 kill(pid, SIGTERM);
                 task_status[i] = "FINISHED";
             }
@@ -98,7 +102,7 @@ void sigterm_handler(int sig){
     while(!tasks_terminated){
         counter = 0;
         for(int i = 0; i<= task_number; i++){
-            if(task_status[i] == "EXECUTING")
+            if(strcmp(task_status[i], "EXECUTING") == 0)
                 counter++;
         }
         if(!counter)

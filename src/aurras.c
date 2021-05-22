@@ -8,6 +8,9 @@
 #include "../includes/aurras.h"
 #define MAX 2048
 
+//Teste
+// ./aurras transform test.mp3 music/mm.mp3 echo
+
 int transformInput(char *arg) {
     if (strcasecmp(arg, "transform") == 0)
         return 1;
@@ -45,12 +48,13 @@ int main(int argc, char *argv[]) {
         close(fifo_clientServer);
 
         int bytesread = 0;
-        while ((bytesread = read(fifo_serverClient, fromServer, MAX)) > 0)
+        if ((bytesread = read(fifo_serverClient, fromServer, MAX)) > 0){
             if (write(STDOUT_FILENO, fromServer, bytesread) < 0) {
                 perror("Erro\n\tEscrita no stdout\n");
                 //close(fifo_serverClient);
                 return -1;
             }
+        }
         close(fifo_serverClient);
     }
 
@@ -87,6 +91,7 @@ int main(int argc, char *argv[]) {
                 strcpy(toServer, "0:");
                 break;
         }
+
         int fifo_clientServer = open("fifo_clientServer", O_WRONLY);
         int fifo_serverClient = open("fifo_serverClient", O_RDONLY);
 
@@ -97,11 +102,12 @@ int main(int argc, char *argv[]) {
         close(fifo_clientServer);
 
         int bytesread = 0;
-        while ((bytesread = read(fifo_serverClient, fromServer, MAX)) > 0)
+        if ((bytesread = read(fifo_serverClient, fromServer, MAX)) > 0){
             if (write(STDOUT_FILENO, fromServer, bytesread) < 0) {
                 perror("Erro\n\t- escrita no stdout\n");
                 return -1;
             }
+        }
         close(fifo_serverClient);
     }
 

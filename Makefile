@@ -22,3 +22,7 @@ bin/aurras: $(OBJ)/aurras.o
 
 clean:
 	rm -rf $(OBJ)/*.o $(BIN)/{aurras,aurrasd,fifo_clientServer,fifo_serverClient}
+
+test: 
+	cd bin && ./aurra
+	cd bin && ./aurras status
