@@ -15,6 +15,14 @@
 //Teste
 // ./aurrasd aurrasd2.conf filters-folder
 
+/*
+TODO 
+- Cliente so pode acabar quando o ficheiro estiver pronto!
+- Quando estao os 2 filtros a ser utilizados o status nao funciona (demora).
+- Fica em loop no CheckFilterUsage quando corre o terceiro processo (limite do filtro é 2). Faltas derementar filtros no sigchld_handler
+
+*/
+
 struct filter{
     char name[50]; 
     char exec_path[100];
@@ -76,6 +84,17 @@ void incrementFilters (char* filters){
     }
 }
 
+void decrementFilters (char* filters){
+    char* token;
+    while((token = strtok_r(filters, " ", &filters))){
+        for(int i = 0; filter_array[i].name[0]; i++){
+            if(strcmp(filter_array[i].name, token) == 0){
+                filter_array[i].usage--;
+            }
+        }
+    }
+}
+
 void sigchld_handler(int sig){
     int status;
     pid_t pid;
@@ -83,11 +102,13 @@ void sigchld_handler(int sig){
         for(int i = 0; i <= task_number-1; i++){
             if(WEXITSTATUS(status) == 1){
                 kill(pid, SIGTERM);
+                //decrementfilters task i
                 task_status[i] = "ERROR";
                 break;
             }
             else if(strcmp(task_status[i], "EXECUTING") == 0){
                 kill(pid, SIGTERM);
+                //decrementfilters task i
                 task_status[i] = "FINISHED";
             }
         }
@@ -258,6 +279,7 @@ int main(int argc, char *argv[]) {
 
             int pid;
             if((pid = fork()) == 0){
+                sleep(25);
                 execvp(args[0], args);
                 exit(1);
             }
