@@ -9,23 +9,37 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-#include "../includes/aurrasd.h"
+//#include "../includes/aurrasd.h"
 #define MAX 2048
 
 //Teste
 // ./aurrasd aurrasd2.conf filters-folder
+// ./bin/aurrasd etc/aurrasd.conf bin/aurrasd-filter
 
 /*
 TODO 
 - Cliente so pode acabar quando o ficheiro estiver pronto!
 - Quando estao os 2 filtros a ser utilizados o status nao funciona (demora).
-- Fica em loop no CheckFilterUsage quando corre o terceiro processo (limite do filtro é 2). Faltas derementar filtros no sigchld_handler
+- Fica em loop no CheckFilterUsage quando corre o terceiro processo (limite do filtro é 2). Faltas decrementar filtros no sigchld_handler
+
+Updates:
+Pus o exec a receber o que é suposto (temos muitas linhas de codigo que agora ja nao sao precisas, mas depois
+limpa-se).
+O que penso que seja preciso fazer é um dup2 na linha 300 (antes do fork) em que redirecionamos o stdin
+para o ficheiro audio que é dado como input e o stdout para o ficheiro que é dado para output do programa.
+Nao tenho a certeza mas penso que é isso.
+No fim nao esquecer voltar a por os file descriptors normais. (Ex guiao4 ex 3, e ex 5).
+O processo filho mantem os mesmos file descriptors que o pai e o exec tambem por isso deveria funcionar.
+Apos o redirecionamento penso que o programa ja funcione para inputs em que é dado apenas um filtro.
+Depois disto é corrigir os erros acima no TODO e tentar fazer a cena dos pipes para recebermos mais do
+que um filtro.
 
 */
 
 struct filter{
     char name[50]; 
     char exec_path[100];
+    char exec [100];
     int total;
     int usage;
 };
@@ -50,6 +64,15 @@ size_t readln(int fd, char* line, size_t size) {
 }
 
 char* getExec (char* token){
+    for(int i= 0; filter_array[i].name[0]; i++){
+        if(strcmp(filter_array[i].name, token) == 0){
+            return filter_array[i].exec;
+        }
+    }
+    return "ERRO";
+}
+
+char* getExecPath (char* token){
     for(int i= 0; filter_array[i].name[0]; i++){
         if(strcmp(filter_array[i].name, token) == 0){
             return filter_array[i].exec_path;
@@ -128,7 +151,7 @@ void sigterm_handler(int sig){
         }
         if(!counter)
             tasks_terminated = 1;
-        sleep(3);
+        //sleep(3);
     }
 
 }
@@ -149,9 +172,9 @@ int main(int argc, char *argv[]) {
     int counter2 = 0;
     ssize_t bytes_read = 0;
 
-    strcpy(path, argv[2]);
-    strcat(path, bar);
-    strcat(path, argv[1]);
+    strcpy(path, argv[1]);
+    //strcat(path, bar);
+    //strcat(path, argv[1]);
     printf("Path %s\n", path);
     int fd = open(path, O_RDONLY);
     if(fd == -1){
@@ -166,8 +189,11 @@ int main(int argc, char *argv[]) {
                 //printf("Token %s\n", token);
                 if(counter2 == 0)
                     strcpy(filter_array[counter].name, token);
-                if(counter2 == 1)
-                    strcpy(filter_array[counter].exec_path, token);
+                if(counter2 == 1){
+                    strcpy(filter_array[counter].exec_path, "bin/aurrasd-filters/");
+                    strcpy(filter_array[counter].exec, token);
+                    strcat(filter_array[counter].exec_path, token);
+                }
                 if(counter2 == 2)
                     filter_array[counter].total = atoi(token);
                 counter2++;
@@ -213,47 +239,54 @@ int main(int argc, char *argv[]) {
             char* args [1024];
             char* token;
             char* filter_names = NULL;
+            char * exec_names = NULL;
             char* straux = NULL;
-            int counter = 2;
+            char* straux2 = NULL;
+            int counter = 0;
             int fst = 0;
             int fst2 = 0;
             char* v = ", ";
             char* v2 = " ";
 
-            args[0] = "ffmpeg";
-            args[1] = "-i";
-
             task_command[task_number] = strdup(buffer);
             task_status[task_number] = "EXECUTING";
 
             while((token = strtok_r(buffer, " ", &buffer))){
-                if(counter == 5){
+                printf("BUF %s \n", token);
+                if(counter == 3){
                     if(!fst2){
                         fst2 = 1;
                         filter_names = strdup(token);
-                        straux = strdup(getExec(token));
+                        straux = strdup(getExecPath(token));
+                        straux2 = strdup(getExec(token));
                     }   
                     else{
                         strcat(straux, getExec(token));
                         strcat(filter_names, token);
                     }
                     strcat(straux, v);
+                    strcat(straux2, v);
                     strcat(filter_names, v2);
                 }
                 else{
                     if(fst)
-                        args[counter-1] = strdup(token);  // ffmpeg -i input.mp3 output.mp3 filtro_1 filtro_2
+                        //args[counter-1] = strdup(token);  // ffmpeg -i input.mp3 output.mp3 filtro_1 filtro_2
                     fst = 1;
                     counter++;
                 }
             }
 
             straux[strlen(straux)-2] = '\0';
-            args[counter-1] = straux;
+            straux2[strlen(straux2)-2] = '\0';
+            args[0] = straux;
             counter++;
-            token = args[3];
-            args[3] = "-filter";
-            args[counter-1] = token;    // ffmpeg -i input.mp3 -filter "filtro_1 filtro_2" output.mp3
+            printf("Filter_names %s \n", filter_names);
+            printf("STrAux %s \n", straux);
+            printf("STrAux %s \n", straux2);
+            //token = args[3];
+            //args[3] = "-filter";
+            //args[counter-1] = token;    // ffmpeg -i input.mp3 -filter "filtro_1 filtro_2" output.mp3
+            printf("BBB\n");
             for(int i = 0; args[i]; i++){
                 printf("Args[%d] - %s\n", i, args[i]);
             }
@@ -268,7 +301,7 @@ int main(int argc, char *argv[]) {
                     write(fifo_serverClient, message, strlen(message));
                 }
                 printf("Cheguei \n");
-                sleep(3);
+                //sleep(3);
             }
 
             //Incrementar os filtros que vao ser usados
@@ -279,8 +312,9 @@ int main(int argc, char *argv[]) {
 
             int pid;
             if((pid = fork()) == 0){
-                sleep(25);
-                execvp(args[0], args);
+                printf("AAA\n");
+                //sleep(5);
+                execlp(straux, straux2, NULL);
                 exit(1);
             }
 

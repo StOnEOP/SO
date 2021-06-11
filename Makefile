@@ -1,28 +1,24 @@
-CC = gcc
-CFLAGS = -Wextra -g -O2 -Wall
-INCLUDES = includes
-SRC = src
-OBJ = obj
-BIN = bin
-
 all: server client
 
-server:	obj/aurrasd bin/aurrasd
-client: obj/aurras bin/aurras
+server: obj/aurrasd.o bin/aurrasd
 
-obj/aurrasd: $(SRC)/aurrasd.c $(INCLUDES)/aurrasd.h
-	$(CC) $(CFLAGS) -o $(OBJ)/aurrasd.o -c $(SRC)/aurrasd.c
-bin/aurrasd: $(OBJ)/aurrasd.o
-	$(CC) $(CFLAGS) $(OBJ)/aurrasd.o -o $(BIN)/aurrasd
+client: obj/aurras.o bin/aurras
 
-obj/aurras: $(SRC)/aurras.c $(INCLUDES)/aurras.h
-	$(CC) $(CFLAGS) -o $(OBJ)/aurras.o -c $(SRC)/aurras.c 
-bin/aurras: $(OBJ)/aurras.o
-	$(CC) $(CFLAGS) $(OBJ)/aurras.o -o $(BIN)/aurras
+obj/aurrasd.o: src/aurrasd.c
+	gcc -Wall -g -c src/aurrasd.c -o obj/aurrasd.o
+
+bin/aurras: obj/aurras.o
+	gcc -g obj/aurras.o -o bin/aurras
+
+bin/aurrasd: obj/aurrasd.o
+	gcc -g obj/aurrasd.o -o bin/aurrasd
+
+obj/aurras.o: src/aurras.c
+	gcc -Wall -g -c src/aurras.c -o obj/aurras.o
 
 clean:
-	rm -rf $(OBJ)/*.o $(BIN)/{aurras,aurrasd,fifo_clientServer,fifo_serverClient}
+	rm obj/* tmp/* bin/{aurras,aurrasd}
 
-test: 
-	cd bin && ./aurra
-	cd bin && ./aurras status
+test:
+	bin/aurras samples/sample-1.mp3 tmp/sample-1.mp3
+	bin/aurras samples/sample-2.mp3 tmp/sample-2.mp3

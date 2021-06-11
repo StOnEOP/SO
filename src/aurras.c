@@ -5,11 +5,12 @@
 #include <string.h>
 #include <strings.h>
 
-#include "../includes/aurras.h"
+//#include "../includes/aurras.h"
 #define MAX 2048
 
 //Teste
 // ./aurras transform test.mp3 music/mm.mp3 echo
+// ./bin/aurras transform samples/sample-1.mp3 tmp/sample-1.mp3
 
 int transformInput(char *arg) {
     if (strcasecmp(arg, "transform") == 0)
