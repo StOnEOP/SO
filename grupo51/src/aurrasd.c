@@ -9,7 +9,6 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-//#include "../includes/aurrasd.h"
 #define MAX 2048
 
 //Teste
@@ -35,7 +34,7 @@ que um filtro.
 
 */
 
-struct filter{
+struct filter {
     char name[50]; 
     char exec_path[100];
     char exec [100];
@@ -62,102 +61,84 @@ size_t readln(int fd, char* line, size_t size) {
     return line_length;
 }
 
-char* getExec (char* token){
-    for(int i= 0; filter_array[i].name[0]; i++){
-        if(strcmp(filter_array[i].name, token) == 0){
+char* getExec(char* token) {
+    for(int i= 0; filter_array[i].name[0]; i++)
+        if(strcmp(filter_array[i].name, token) == 0)
             return filter_array[i].exec;
-        }
-    }
     return "ERRO";
 }
 
-char* getExecPath (char* token){
-    for(int i= 0; filter_array[i].name[0]; i++){
-        if(strcmp(filter_array[i].name, token) == 0){
+char* getExecPath(char* token) {
+    for(int i= 0; filter_array[i].name[0]; i++)
+        if(strcmp(filter_array[i].name, token) == 0)
             return filter_array[i].exec_path;
-        }
-    }
     return "ERRO";
 }
 
-int checkFiltersUsage (char* filters){
+int checkFiltersUsage(char* filters) {
     char* token;
-    while((token = strtok_r(filters, " ", &filters))){
-        for(int i = 0; filter_array[i].name[0]; i++){
-            if(strcmp(filter_array[i].name, token) == 0){
-                if(filter_array[i].usage == filter_array[i].total){
+    while ((token = strtok_r(filters, " ", &filters)))
+        for (int i = 0; filter_array[i].name[0]; i++)
+            if (strcmp(filter_array[i].name, token) == 0)
+                if (filter_array[i].usage == filter_array[i].total)
                     printf("Usage %d, Total %d\n", filter_array[i].usage, filter_array[i].total);
                     return 1;
-                }
-            }
-        }
-    }
     return 0;
 }
 
-void incrementFilters (char* filters){
+void incrementFilters(char* filters) {
     char* token;
-    while((token = strtok_r(filters, " ", &filters))){
-        for(int i = 0; filter_array[i].name[0]; i++){
-            if(strcmp(filter_array[i].name, token) == 0){
+    while ((token = strtok_r(filters, " ", &filters)))
+        for (int i = 0; filter_array[i].name[0]; i++)
+            if (strcmp(filter_array[i].name, token) == 0)
                 filter_array[i].usage++;
-            }
-        }
-    }
 }
 
-void decrementFilters (char* filters){
+void decrementFilters(char* filters) {
     char* token;
-    while((token = strtok_r(filters, " ", &filters))){
-        for(int i = 0; filter_array[i].name[0]; i++){
-            if(strcmp(filter_array[i].name, token) == 0){
+    while ((token = strtok_r(filters, " ", &filters)))
+        for (int i = 0; filter_array[i].name[0]; i++)
+            if (strcmp(filter_array[i].name, token) == 0)
                 filter_array[i].usage--;
-            }
-        }
-    }
 }
 
-void sigchld_handler(int sig){
+void sigchld_handler(int sig) {
     int status;
     pid_t pid;
-    while((pid = waitpid(-1, &status, WNOHANG)) > 0){
-        for(int i = 0; i <= task_number-1; i++){
-            if(WEXITSTATUS(status) == 1){
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+        for (int i = 0; i <= task_number-1; i++)
+            if (WEXITSTATUS(status) == 1) {
                 kill(pid, SIGTERM);
                 //decrementfilters task i
                 task_status[i] = "ERROR";
                 break;
             }
-            else if(strcmp(task_status[i], "EXECUTING") == 0){
+            else if (strcmp(task_status[i], "EXECUTING") == 0){
                 kill(pid, SIGTERM);
                 //decrementfilters task i
                 task_status[i] = "FINISHED";
             }
-        }
-    }
 }
 
-void sigterm_handler(int sig){
+void sigterm_handler(int sig) {
     terminate = 1;
     int tasks_terminated = 0;
     int counter = 0;
 
-    while(!tasks_terminated){
+    while (!tasks_terminated) {
         counter = 0;
-        for(int i = 0; i<= task_number; i++){
-            if(strcmp(task_status[i], "EXECUTING") == 0)
+        for (int i = 0; i<= task_number; i++)
+            if (strcmp(task_status[i], "EXECUTING") == 0)
                 counter++;
-        }
-        if(!counter)
+        if (!counter)
             tasks_terminated = 1;
         //sleep(3);
     }
-
 }
 
 int main(int argc, char *argv[]) {
     //Configuring server
-    if(argc != 3){
+    if(argc != 3) {
         perror("Invalid arguments to start the server\n");
         return 1;
     }
@@ -176,24 +157,24 @@ int main(int argc, char *argv[]) {
     //strcat(path, argv[1]);
     printf("Path %s\n", path);
     int fd = open(path, O_RDONLY);
-    if(fd == -1){
+    if(fd == -1) {
         perror("Error opening config file\n");
         return 1;
     }
-    else{
-        while((bytes_read = readln(fd, line, 1024))){
+    else {
+        while ((bytes_read = readln(fd, line, 1024))) {
             //printf("%s\n", line);
             line2 = strdup(line);
-            while((token = strtok_r(line2, " ", &line2))){
+            while ((token = strtok_r(line2, " ", &line2))) {
                 //printf("Token %s\n", token);
-                if(counter2 == 0)
+                if (counter2 == 0)
                     strcpy(filter_array[counter].name, token);
-                if(counter2 == 1){
+                if (counter2 == 1) {
                     strcpy(filter_array[counter].exec_path, "bin/aurrasd-filters/");
                     strcpy(filter_array[counter].exec, token);
                     strcat(filter_array[counter].exec_path, token);
                 }
-                if(counter2 == 2)
+                if (counter2 == 2)
                     filter_array[counter].total = atoi(token);
                 counter2++;
             }
@@ -202,7 +183,7 @@ int main(int argc, char *argv[]) {
             counter++;
         }
     }
-    for(int i = 0; i<100 && filter_array[i].name[0]; i++){
+    for (int i = 0; i<100 && filter_array[i].name[0]; i++) {
         printf("Name- %s\n", filter_array[i].name);
         printf("Exec- %s\n", filter_array[i].exec_path);
         printf("Total- %d\n", filter_array[i].total);
@@ -215,7 +196,6 @@ int main(int argc, char *argv[]) {
     signal(SIGCHLD, sigchld_handler);
     signal(SIGTERM, sigterm_handler);
 
-
     //char **log = malloc(sizeof(char*) * 1);
     //int iLog = 0;
     while (!terminate) {
@@ -226,14 +206,13 @@ int main(int argc, char *argv[]) {
         if (read(fifo_clientServer, buffer, MAX) < 0)
             strcpy(buffer, "Erro");
             
-        if(strncmp(buffer, "ajuda", 5) == 0) { //Listar a maneira correta de utilizar o programa
+        if (strncmp(buffer, "ajuda", 5) == 0) { // Listar a maneira correta de utilizar o programa
             char comandos[] = "\nComandos diponiveis:\n\n"
                                 "./aurras status\n"
                                 "./aurras transform input-filename output-filename filter-id-1 filter-id-2...\n\n";
             write(fifo_serverClient, comandos, strlen(comandos));
         }
-
-        else if(strncmp(buffer, "transform", 9) == 0){ // ffmpeg -i input.mp3 -filter "filtro_1, filtro_2" output.mp3
+        else if (strncmp(buffer, "transform", 9) == 0) { // ffmpeg -i input.mp3 -filter "filtro_1, filtro_2" output.mp3
             char message [64];
             char* args [1024];
             char* token;
@@ -250,16 +229,16 @@ int main(int argc, char *argv[]) {
             task_command[task_number] = strdup(buffer);
             task_status[task_number] = "EXECUTING";
 
-            while((token = strtok_r(buffer, " ", &buffer))){
+            while ((token = strtok_r(buffer, " ", &buffer))) {
                 printf("BUF %s \n", token);
-                if(counter == 3){
-                    if(!fst2){
+                if (counter == 3) {
+                    if (!fst2) {
                         fst2 = 1;
                         filter_names = strdup(token);
                         straux = strdup(getExecPath(token));
                         straux2 = strdup(getExec(token));
                     }   
-                    else{
+                    else {
                         strcat(straux, getExec(token));
                         strcat(filter_names, token);
                     }
@@ -267,8 +246,8 @@ int main(int argc, char *argv[]) {
                     strcat(straux2, v);
                     strcat(filter_names, v2);
                 }
-                else{
-                    if(fst)
+                else {
+                    if (fst)
                         //args[counter-1] = strdup(token);  // ffmpeg -i input.mp3 output.mp3 filtro_1 filtro_2
                     fst = 1;
                     counter++;
@@ -286,15 +265,14 @@ int main(int argc, char *argv[]) {
             //args[3] = "-filter";
             //args[counter-1] = token;    // ffmpeg -i input.mp3 -filter "filtro_1 filtro_2" output.mp3
             printf("BBB\n");
-            for(int i = 0; args[i]; i++){
+            for(int i = 0; args[i]; i++)
                 printf("Args[%d] - %s\n", i, args[i]);
-            }
 
             int fst_time = 0;
             //fazer uma função checkfilter a correr num while para so continuar quando houver filtros disponiveis
             char* filter_names2 = strdup(filter_names);
-            while(checkFiltersUsage(filter_names)){
-                if(!fst_time){
+            while (checkFiltersUsage(filter_names)) {
+                if(!fst_time) {
                     fst_time = 1;
                     sprintf(message, "\nPending task #%d\n\n", task_number+1);
                     write(fifo_serverClient, message, strlen(message));
@@ -309,41 +287,49 @@ int main(int argc, char *argv[]) {
             sprintf(message, "\nProcessing task #%d\n\n", task_number+1);
             write(fifo_serverClient, message, strlen(message));
 
+            /* O que penso que seja preciso fazer é um dup2 na linha 300 (antes do fork) em que redirecionamos o stdin
+            para o ficheiro audio que é dado como input e o stdout para o ficheiro que é dado para output do programa.
+            Nao tenho a certeza mas penso que é isso. */
+            int stdin_faudio = open("FICHEIRO INPUT", O_RDONLY);
+            int stdout_faudio = open("FICHEIRO OUTPUT", O_WRONLY | O_CREAT | O_TRUNC);
+
+            int stdin_fd = dup2(stdin_faudio, STDIN_FILENO);
+            int stdout_fd = dup2(stdout_faudio, STDOUT_FILENO);
+
             int pid;
-            if((pid = fork()) == 0){
+            if((pid = fork()) == 0) {
                 printf("AAA\n");
                 //sleep(5);
                 execlp(straux, straux2, NULL);
                 exit(1);
             }
-
             task_number++;
 
-
-
+            // No fim nao esquecer voltar a por os file descriptors normais. (Ex guiao4 ex 3, e ex 5).
+            close(stdin_faudio);
+            close(stdout_faudio);
         }
 
-        else if(strncmp(buffer, "status", 6) == 0){
+        else if (strncmp(buffer, "status", 6) == 0) {
             char message[1024];
             int empty = 1;
             strcpy(message, "\nTasks Executing:\n");
             write(fifo_serverClient, message, strlen(message));
 
-            for(int i = 0; i < task_number; i++){
-                if(strcmp(task_status[i], "EXECUTING") == 0){
+            for (int i = 0; i < task_number; i++)
+                if (strcmp(task_status[i], "EXECUTING") == 0) {
                     empty = 0;
                     sprintf(message, "task #%d: %s\n", i+1, task_command[i]);
                     write(fifo_serverClient, message, strlen(message));
                 }
-            }
-            for(int i = 0; filter_array[i].name[0]; i++){
+            for (int i = 0; filter_array[i].name[0]; i++) {
                 sprintf(message, "filter %s: %d/%d (running/max)\n", filter_array[i].name, filter_array[i].usage, filter_array[i].total);
                 write(fifo_serverClient, message, strlen(message));
             }
             sprintf(message, "pid: %d\n", getpid());
             write(fifo_serverClient, message, strlen(message));
             write(fifo_serverClient, "\n", 1);
-            if(empty){
+            if (empty) {
                 sprintf(message, "There are no tasks executing\n");
                 write(fifo_serverClient, message, strlen(message));
             }
@@ -351,4 +337,3 @@ int main(int argc, char *argv[]) {
     }
     return 0;
 }
-
