@@ -77,12 +77,16 @@ char* getExecPath(char* token) {
 
 int checkFiltersUsage(char* filters) {
     char* token;
-    while ((token = strtok_r(filters, " ", &filters)))
-        for (int i = 0; filter_array[i].name[0]; i++)
-            if (strcmp(filter_array[i].name, token) == 0)
-                if (filter_array[i].usage == filter_array[i].total)
+    while ((token = strtok_r(filters, " ", &filters))){
+        for (int i = 0; filter_array[i].name[0]; i++){
+            if (strcmp(filter_array[i].name, token) == 0){
+                if (filter_array[i].usage == filter_array[i].total){
                     printf("Usage %d, Total %d\n", filter_array[i].usage, filter_array[i].total);
                     return 1;
+                }
+            }
+        }
+    }
     return 0;
 }
 
@@ -248,7 +252,7 @@ int main(int argc, char *argv[]) {
                 }
                 else {
                     if (fst)
-                        //args[counter-1] = strdup(token);  // ffmpeg -i input.mp3 output.mp3 filtro_1 filtro_2
+                        args[counter-1] = strdup(token);  // ffmpeg -i input.mp3 output.mp3 filtro_1 filtro_2
                     fst = 1;
                     counter++;
                 }
@@ -256,11 +260,11 @@ int main(int argc, char *argv[]) {
 
             straux[strlen(straux)-2] = '\0';
             straux2[strlen(straux2)-2] = '\0';
-            args[0] = straux;
+            //args[0] = straux;
             counter++;
             printf("Filter_names %s \n", filter_names);
             printf("STrAux %s \n", straux);
-            printf("STrAux %s \n", straux2);
+            printf("STrAux2 %s \n", straux2);
             //token = args[3];
             //args[3] = "-filter";
             //args[counter-1] = token;    // ffmpeg -i input.mp3 -filter "filtro_1 filtro_2" output.mp3
@@ -271,6 +275,7 @@ int main(int argc, char *argv[]) {
             int fst_time = 0;
             //fazer uma função checkfilter a correr num while para so continuar quando houver filtros disponiveis
             char* filter_names2 = strdup(filter_names);
+            printf("FILTER NAMES - %s\n", filter_names);
             while (checkFiltersUsage(filter_names)) {
                 if(!fst_time) {
                     fst_time = 1;
@@ -278,7 +283,7 @@ int main(int argc, char *argv[]) {
                     write(fifo_serverClient, message, strlen(message));
                 }
                 printf("Cheguei \n");
-                //sleep(3);
+                sleep(3);
             }
 
             //Incrementar os filtros que vao ser usados
@@ -290,24 +295,28 @@ int main(int argc, char *argv[]) {
             /* O que penso que seja preciso fazer é um dup2 na linha 300 (antes do fork) em que redirecionamos o stdin
             para o ficheiro audio que é dado como input e o stdout para o ficheiro que é dado para output do programa.
             Nao tenho a certeza mas penso que é isso. */
-            int stdin_faudio = open("FICHEIRO INPUT", O_RDONLY);
-            int stdout_faudio = open("FICHEIRO OUTPUT", O_WRONLY | O_CREAT | O_TRUNC);
+            printf("Vou fazer dups!\n");
+            int stdin_faudio = open(args[0], O_RDONLY);
+            int stdout_faudio = open(args[1], O_WRONLY | O_CREAT | O_TRUNC);
 
             int stdin_fd = dup2(stdin_faudio, STDIN_FILENO);
             int stdout_fd = dup2(stdout_faudio, STDOUT_FILENO);
 
+            //printf("%d, %d", stdin_fd, stdout_fd);
+
             int pid;
             if((pid = fork()) == 0) {
-                printf("AAA\n");
+                //printf("AAA\n");
                 //sleep(5);
-                execlp(straux, straux2, NULL);
+                execl(straux, straux2, NULL);
                 exit(1);
             }
             task_number++;
 
             // No fim nao esquecer voltar a por os file descriptors normais. (Ex guiao4 ex 3, e ex 5).
-            close(stdin_faudio);
-            close(stdout_faudio);
+            //close(stdin_faudio);
+            //close(stdout_faudio);
+            //printf("CLOSED!\n");
         }
 
         else if (strncmp(buffer, "status", 6) == 0) {
