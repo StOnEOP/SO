@@ -9,8 +9,7 @@
 #define MAX 2048
 
 //Teste
-// ./aurras transform test.mp3 music/mm.mp3 echo
-// ./bin/aurras transform samples/sample-1.mp3 tmp/sample-1.mp3
+// ./bin/aurras transform samples/sample-1-so.m4a tmp/sample-1.m4a alto
 
 int transformInput(char *arg) {
     if (strcasecmp(arg, "transform") == 0)

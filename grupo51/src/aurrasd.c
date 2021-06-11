@@ -13,7 +13,6 @@
 #define MAX 2048
 
 //Teste
-// ./aurrasd aurrasd2.conf filters-folder
 // ./bin/aurrasd etc/aurrasd.conf bin/aurrasd-filter
 
 /*
