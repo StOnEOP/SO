@@ -62,9 +62,11 @@ size_t readln(int fd, char* line, size_t size) {
 }
 
 char* getExec(char* token) {
-    for(int i= 0; filter_array[i].name[0]; i++)
+    for(int i= 0; filter_array[i].name[0]; i++){
+        printf("Comparing %s with %s \n", filter_array[i].name, token);
         if(strcmp(filter_array[i].name, token) == 0)
             return filter_array[i].exec;
+    }
     return "ERRO";
 }
 
@@ -109,20 +111,23 @@ void decrementFilters(char* filters) {
 void sigchld_handler(int sig) {
     int status;
     pid_t pid;
-    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0){
         for (int i = 0; i <= task_number-1; i++){
             if (WEXITSTATUS(status) == 1) {
                 kill(pid, SIGTERM);
+                printf("Child Error\n");
                 //decrementfilters task i
                 task_status[i] = "ERROR";
                 break;
             }
             else if (strcmp(task_status[i], "EXECUTING") == 0){
                 kill(pid, SIGTERM);
+                printf("Child finished executing");
                 //decrementfilters task i
                 task_status[i] = "FINISHED";
             }
         }
+    }
 }
 
 void sigterm_handler(int sig) {
@@ -281,7 +286,7 @@ int main(int argc, char *argv[]) {
             int fst_time = 0;
             //fazer uma função checkfilter a correr num while para so continuar quando houver filtros disponiveis
             char* filter_names2 = strdup(filter_names);
-            printf("FILTER NAMES - %s\n", filter_names);
+            char* filter_names3 = strdup(filter_names);
             while (checkFiltersUsage(filter_names)) {
                 if(!fst_time) {
                     fst_time = 1;
@@ -302,36 +307,33 @@ int main(int argc, char *argv[]) {
             int stdout_faudio = open(args[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
             printf("Num filters - %d\n", num_filters);
+            printf("FILTER NAMES - %s\n", filter_names3);
 
             int i = 0, pid;
             char *token2 = NULL;
-            while ((token2 = strtok_r(filter_names, " ", &filter_names))) {
+            while ((token2 = strtok_r(filter_names3, " ", &filter_names3))) {
+                printf("TOken2 %s\n", token2);
+                printf("I - %d\n", i);
+                 printf("ExecPath - %s, Exec - %s\n", getExecPath(token2), getExec(token2));
                 if (i == 0) {
                     pipe(pipes[currentPipe]);
                     if ((pid = fork()) == 0) {
-                        //printf("FIlho\n");
                         close(pipes[currentPipe][0]);
                         dup2(stdin_faudio, STDIN_FILENO);
                         close(stdin_faudio);
-                        //printf("FIlho a frente\n");
                         if(num_filters == 1){
-                            //printf("FIlho a frente2\n");
                             dup2(stdout_faudio, STDOUT_FILENO);
                             close(stdout_faudio);
-                            //printf("FIlho a frente2.6\n");
                         }
                         else{
-                            //printf("FIlho a frente3\n");
                             dup2(pipes[currentPipe][1], STDOUT_FILENO);
                             close(pipes[currentPipe][1]);
                         }
-                        //printf("FIlho a frente4\n");
                         execl(getExecPath(token2), getExec(token2), NULL);
-                        printf("FIlho pos exec\n");
                         exit(1);
                     }
                 }
-                else {
+                else { //fazer um if a ver se e o ultimo filtro para redirecionar para o ficheiro
                     pipe(pipes[currentPipe]);
                     if ((pid = fork()) == 0) {
                         close(pipes[currentPipe][0]);
@@ -339,8 +341,14 @@ int main(int argc, char *argv[]) {
                             dup2(pipes[currentPipe-1][0], STDIN_FILENO);
                             close(pipes[currentPipe-1][0]);
                         }
-                        dup2(pipes[currentPipe][1], STDOUT_FILENO);
-                        close(pipes[currentPipe][1]);
+                        if(i+1==num_filters){
+                            dup2(stdout_faudio, STDOUT_FILENO);
+                            close(stdout_faudio);
+                        }
+                        else{
+                            dup2(pipes[currentPipe][1], STDOUT_FILENO);
+                            close(pipes[currentPipe][1]);
+                        }
                         execl(getExecPath(token2), getExec(token2), NULL);
                         exit(1);
                     }
@@ -352,6 +360,8 @@ int main(int argc, char *argv[]) {
                 currentPipe++;
                 i++;
             }
+            printf("SAI DO WHILE!\n");
+            /*
             if(num_filters != 1){
                 printf("DIF\n");
                 if ((pid = fork()) == 0) {
@@ -365,7 +375,8 @@ int main(int argc, char *argv[]) {
                     exit(1);
                 }
             }
-            printf("FInish cycle\n");
+            */
+            //printf("FInish cycle\n");
 
             task_number++;
         }
