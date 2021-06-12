@@ -217,6 +217,8 @@ int main(int argc, char *argv[]) {
             write(fifo_serverClient, comandos, strlen(comandos));
         }
         else if (strncmp(buffer, "transform", 9) == 0) { // ffmpeg -i input.mp3 -filter "filtro_1, filtro_2" output.mp3
+            int pipes[32][2];
+            int currentPipe = 0;
             char message [64];
             char* args [1024];
             char* token;
@@ -292,31 +294,57 @@ int main(int argc, char *argv[]) {
             sprintf(message, "\nProcessing task #%d\n\n", task_number+1);
             write(fifo_serverClient, message, strlen(message));
 
-            /* O que penso que seja preciso fazer é um dup2 na linha 300 (antes do fork) em que redirecionamos o stdin
-            para o ficheiro audio que é dado como input e o stdout para o ficheiro que é dado para output do programa.
-            Nao tenho a certeza mas penso que é isso. */
-            printf("Vou fazer dups!\n");
             int stdin_faudio = open(args[0], O_RDONLY);
             int stdout_faudio = open(args[1], O_WRONLY | O_CREAT | O_TRUNC);
 
-            int stdin_fd = dup2(stdin_faudio, STDIN_FILENO);
-            int stdout_fd = dup2(stdout_faudio, STDOUT_FILENO);
+            int i = 0, pid;
+            char *token2 = NULL;
+            while ((token2 = strtok_r(filter_names, " ", &filter_names))) {
+                if (i == 0) {
+                    pipe(pipes[currentPipe]);
+                    if ((pid = fork()) == 0) {
+                        close(pipes[currentPipe][0]);
+                        dup2(stdin_faudio, STDIN_FILENO);
+                        dup2(pipes[currentPipe][1], STDOUT_FILENO);
+                        close(stdin_faudio);
+                        close(pipes[currentPipe][1]);
+                        execl(getExecPath(token), getExec(token), NULL);
+                        exit(1);
+                    }
+                }
+                else {
+                    pipe(pipes[currentPipe]);
+                    if ((pid = fork()) == 0) {
+                        close(pipes[currentPipe][0]);
+                        if (currentPipe != 0) {
+                            dup2(pipes[currentPipe-1][0], STDIN_FILENO);
+                            close(pipes[currentPipe-1][0]);
+                        }
+                        dup2(pipes[currentPipe][1], STDOUT_FILENO);
+                        close(pipes[currentPipe][1]);
+                        execl(getExecPath(token), getExec(token), NULL);
+                        exit(1);
+                    }
+                }
 
-            //printf("%d, %d", stdin_fd, stdout_fd);
-
-            int pid;
-            if((pid = fork()) == 0) {
-                //printf("AAA\n");
-                //sleep(5);
-                execl(straux, straux2, NULL);
+                close(pipes[currentPipe][1]);
+                if (currentPipe != 0)
+                    close(pipes[currentPipe-1][0]);
+                currentPipe++;
+                i++;
+            }
+            if ((pid = fork()) == 0) {
+                dup2(stdout_faudio, STDOUT_FILENO);
+                close(stdout_faudio);
+                if (currentPipe != 0) {
+                    dup2(pipes[currentPipe-1][0], STDIN_FILENO);
+                    close(pipes[currentPipe-1][0]);
+                }
+                execl(getExecPath(token), getExec(path), NULL);
                 exit(1);
             }
-            task_number++;
 
-            // No fim nao esquecer voltar a por os file descriptors normais. (Ex guiao4 ex 3, e ex 5).
-            //close(stdin_faudio);
-            //close(stdout_faudio);
-            //printf("CLOSED!\n");
+            task_number++;
         }
 
         else if (strncmp(buffer, "status", 6) == 0) {
