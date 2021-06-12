@@ -110,7 +110,7 @@ void sigchld_handler(int sig) {
     int status;
     pid_t pid;
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
-        for (int i = 0; i <= task_number-1; i++)
+        for (int i = 0; i <= task_number-1; i++){
             if (WEXITSTATUS(status) == 1) {
                 kill(pid, SIGTERM);
                 //decrementfilters task i
@@ -122,6 +122,7 @@ void sigchld_handler(int sig) {
                 //decrementfilters task i
                 task_status[i] = "FINISHED";
             }
+        }
 }
 
 void sigterm_handler(int sig) {
@@ -222,6 +223,7 @@ int main(int argc, char *argv[]) {
             char message [64];
             char* args [1024];
             char* token;
+            int num_filters = 0;
             char* filter_names = NULL;
             char * exec_names = NULL;
             char* straux = NULL;
@@ -241,12 +243,14 @@ int main(int argc, char *argv[]) {
                     if (!fst2) {
                         fst2 = 1;
                         filter_names = strdup(token);
+                        num_filters++;
                         straux = strdup(getExecPath(token));
                         straux2 = strdup(getExec(token));
                     }   
                     else {
                         strcat(straux, getExec(token));
                         strcat(filter_names, token);
+                        num_filters++;
                     }
                     strcat(straux, v);
                     strcat(straux2, v);
@@ -295,7 +299,9 @@ int main(int argc, char *argv[]) {
             write(fifo_serverClient, message, strlen(message));
 
             int stdin_faudio = open(args[0], O_RDONLY);
-            int stdout_faudio = open(args[1], O_WRONLY | O_CREAT | O_TRUNC);
+            int stdout_faudio = open(args[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+            printf("Num filters - %d\n", num_filters);
 
             int i = 0, pid;
             char *token2 = NULL;
@@ -303,12 +309,25 @@ int main(int argc, char *argv[]) {
                 if (i == 0) {
                     pipe(pipes[currentPipe]);
                     if ((pid = fork()) == 0) {
+                        //printf("FIlho\n");
                         close(pipes[currentPipe][0]);
                         dup2(stdin_faudio, STDIN_FILENO);
-                        dup2(pipes[currentPipe][1], STDOUT_FILENO);
                         close(stdin_faudio);
-                        close(pipes[currentPipe][1]);
-                        execl(getExecPath(token), getExec(token), NULL);
+                        //printf("FIlho a frente\n");
+                        if(num_filters == 1){
+                            //printf("FIlho a frente2\n");
+                            dup2(stdout_faudio, STDOUT_FILENO);
+                            close(stdout_faudio);
+                            //printf("FIlho a frente2.6\n");
+                        }
+                        else{
+                            //printf("FIlho a frente3\n");
+                            dup2(pipes[currentPipe][1], STDOUT_FILENO);
+                            close(pipes[currentPipe][1]);
+                        }
+                        //printf("FIlho a frente4\n");
+                        execl(getExecPath(token2), getExec(token2), NULL);
+                        printf("FIlho pos exec\n");
                         exit(1);
                     }
                 }
@@ -322,7 +341,7 @@ int main(int argc, char *argv[]) {
                         }
                         dup2(pipes[currentPipe][1], STDOUT_FILENO);
                         close(pipes[currentPipe][1]);
-                        execl(getExecPath(token), getExec(token), NULL);
+                        execl(getExecPath(token2), getExec(token2), NULL);
                         exit(1);
                     }
                 }
@@ -333,16 +352,20 @@ int main(int argc, char *argv[]) {
                 currentPipe++;
                 i++;
             }
-            if ((pid = fork()) == 0) {
-                dup2(stdout_faudio, STDOUT_FILENO);
-                close(stdout_faudio);
-                if (currentPipe != 0) {
-                    dup2(pipes[currentPipe-1][0], STDIN_FILENO);
-                    close(pipes[currentPipe-1][0]);
+            if(num_filters != 1){
+                printf("DIF\n");
+                if ((pid = fork()) == 0) {
+                    dup2(stdout_faudio, STDOUT_FILENO);
+                    close(stdout_faudio);
+                    if (currentPipe != 0) {
+                        dup2(pipes[currentPipe-1][0], STDIN_FILENO);
+                        close(pipes[currentPipe-1][0]);
+                    }
+                    execl(getExecPath(token2), getExec(token2), NULL);
+                    exit(1);
                 }
-                execl(getExecPath(token), getExec(path), NULL);
-                exit(1);
             }
+            printf("FInish cycle\n");
 
             task_number++;
         }
