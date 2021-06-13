@@ -16,9 +16,9 @@
 
 /*
 TODO 
+- Se o cliente fizer 2 pedidos de transform ao servidor o servidor esta a crashar
 - Cliente so pode acabar quando o ficheiro estiver pronto!
 - Quando estao os 2 filtros a ser utilizados o status nao funciona (demora).
-- Fica em loop no CheckFilterUsage quando corre o terceiro processo (limite do filtro é 2). Faltas decrementar filtros no sigchld_handler
 
 Updates:
 Pus o exec a receber o que é suposto (temos muitas linhas de codigo que agora ja nao sao precisas, mas depois
@@ -46,6 +46,8 @@ int terminate = 0;
 int task_number = 0;
 char* task_status[2048];
 char* task_command[2048];
+int total_childs[2048];
+int pids[2048][32];
 int empty_array = 1;
 struct filter filter_array[100];
 
@@ -63,7 +65,7 @@ size_t readln(int fd, char* line, size_t size) {
 
 char* getExec(char* token) {
     for(int i= 0; filter_array[i].name[0]; i++){
-        printf("Comparing %s with %s \n", filter_array[i].name, token);
+        //printf("Comparing %s with %s \n", filter_array[i].name, token);
         if(strcmp(filter_array[i].name, token) == 0)
             return filter_array[i].exec;
     }
@@ -102,28 +104,39 @@ void incrementFilters(char* filters) {
 
 void decrementFilters(char* filters) {
     char* token;
-    while ((token = strtok_r(filters, " ", &filters)))
-        for (int i = 0; filter_array[i].name[0]; i++)
-            if (strcmp(filter_array[i].name, token) == 0)
-                filter_array[i].usage--;
+    int j = 0;
+    printf("Decrementing\n");
+    while ((token = strtok_r(filters, " ", &filters))){
+        if(j > 2){
+            printf("TOken to decrement - %s\n", token);
+            for (int i = 0; filter_array[i].name[0]; i++)
+                if (strcmp(filter_array[i].name, token) == 0)
+                    filter_array[i].usage--;
+        }
+        j++;
+    }
 }
 
 void sigchld_handler(int sig) {
     int status;
     pid_t pid;
+    printf("Child died\n");
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0){
         for (int i = 0; i <= task_number-1; i++){
-            if (WEXITSTATUS(status) == 1) {
-                kill(pid, SIGTERM);
-                printf("Child Error\n");
-                //decrementfilters task i
-                task_status[i] = "ERROR";
-                break;
-            }
-            else if (strcmp(task_status[i], "EXECUTING") == 0){
-                kill(pid, SIGTERM);
+            for(int j = 0; j < total_childs[i]; j++){
+                printf("I %d, J %d , Pid = %d compare to Pid = %d\n", i,j, pids[i][j], pid);
+                if (pids[i][j] == pid && WEXITSTATUS(status) == 1) {
+                    endTask(i);
+                    printf("Child Error\n");
+                    decrementFilters(task_command[i]);
+                    task_status[i] = "ERROR";
+                    break;
+                }
+            } // Se o ultimo filho criado para uma certa task tiver terminado e o status da mesma for executing significa que terminou com sucesso
+            printf("Pids[%d][%d] Pid = %d compare to Pid = %d\n", i, total_childs[i]-1, pids[i][total_childs[i] - 1], pid);
+            if (pids[i][total_childs[i] - 1] == pid && strcmp(task_status[i], "EXECUTING") == 0){ 
                 printf("Child finished executing");
-                //decrementfilters task i
+                decrementFilters(task_command[i]);
                 task_status[i] = "FINISHED";
             }
         }
@@ -143,6 +156,12 @@ void sigterm_handler(int sig) {
         if (!counter)
             tasks_terminated = 1;
         //sleep(3);
+    }
+}
+
+void endTask(int i){
+    for(int j = 0; j < total_childs[i]; j++){
+        kill(pids[i][j], SIGTERM);
     }
 }
 
@@ -314,7 +333,7 @@ int main(int argc, char *argv[]) {
             while ((token2 = strtok_r(filter_names3, " ", &filter_names3))) {
                 printf("TOken2 %s\n", token2);
                 printf("I - %d\n", i);
-                 printf("ExecPath - %s, Exec - %s\n", getExecPath(token2), getExec(token2));
+                printf("ExecPath - %s, Exec - %s\n", getExecPath(token2), getExec(token2));
                 if (i == 0) {
                     pipe(pipes[currentPipe]);
                     if ((pid = fork()) == 0) {
@@ -353,13 +372,16 @@ int main(int argc, char *argv[]) {
                         exit(1);
                     }
                 }
-
+                
                 close(pipes[currentPipe][1]);
+                printf("CurrentPipe value - %d\n", currentPipe);
+                pids[task_number][currentPipe] = pid;
                 if (currentPipe != 0)
                     close(pipes[currentPipe-1][0]);
                 currentPipe++;
                 i++;
             }
+            total_childs[task_number] = currentPipe;
             printf("SAI DO WHILE!\n");
             /*
             if(num_filters != 1){

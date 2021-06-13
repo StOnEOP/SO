@@ -20,5 +20,5 @@ clean:
 	rm obj/* tmp/* bin/aurras bin/aurrasd
 
 test:
-	bin/aurras samples/sample-1.mp3 tmp/sample-1.mp3
-	bin/aurras samples/sample-2.mp3 tmp/sample-2.mp3
+	bin/aurras samples/sample-1-so.m4a tmp/sample-1.mp3
+	bin/aurras samples/sample-2-miei.m4a tmp/sample-2.mp3
