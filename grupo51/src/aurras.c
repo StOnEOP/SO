@@ -33,8 +33,8 @@ int main(int argc, char *argv[]) {
     char toServer[MAX], fromServer[MAX];
     
     if (argc < 2) {     // INFO
-        int fifo_clientServer = open("fifo_clientServer", O_WRONLY);
-        int fifo_serverClient = open("fifo_serverClient", O_RDONLY);
+        int fifo_clientServer = open("tmp/fifo_clientServer", O_WRONLY);
+        int fifo_serverClient = open("tmp/fifo_serverClient", O_RDONLY);
         
         strcpy(toServer, "ajuda");
         if (write(fifo_clientServer, toServer, strlen(toServer)) < 0) {
@@ -89,8 +89,8 @@ int main(int argc, char *argv[]) {
                 break;
         }
 
-        int fifo_clientServer = open("fifo_clientServer", O_WRONLY);
-        int fifo_serverClient = open("fifo_serverClient", O_RDONLY);
+        int fifo_clientServer = open("tmp/fifo_clientServer", O_WRONLY);
+        int fifo_serverClient = open("tmp/fifo_serverClient", O_RDONLY);
 
         if (write(fifo_clientServer, toServer, strlen(toServer)) < 0) {
             perror("Erro\n\t- escrita no fifo clientServer\n");
@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
         close(fifo_clientServer);
 
         int bytesread = 0;
-        if ((bytesread = read(fifo_serverClient, fromServer, MAX)) > 0)
+        while ((bytesread = read(fifo_serverClient, fromServer, MAX)) > 0)
             if (write(STDOUT_FILENO, fromServer, bytesread) < 0) {
                 perror("Erro\n\t- escrita no stdout\n");
                 return -1;

@@ -16,7 +16,6 @@
 
 /*
 TODO 
-- Se o cliente fizer 2 pedidos de transform ao servidor o servidor esta a crashar
 - Cliente so pode acabar quando o ficheiro estiver pronto!
 - Quando estao os 2 filtros a ser utilizados o status nao funciona (demora).
 
@@ -61,6 +60,12 @@ size_t readln(int fd, char* line, size_t size) {
     
     lseek(fd, line_length - bytes_read, SEEK_CUR);
     return line_length;
+}
+
+void endTask(int i){
+    for(int j = 0; j < total_childs[i]; j++){
+        kill(pids[i][j], SIGTERM);
+    }
 }
 
 char* getExec(char* token) {
@@ -159,11 +164,6 @@ void sigterm_handler(int sig) {
     }
 }
 
-void endTask(int i){
-    for(int j = 0; j < total_childs[i]; j++){
-        kill(pids[i][j], SIGTERM);
-    }
-}
 
 int main(int argc, char *argv[]) {
     //Configuring server
@@ -219,8 +219,8 @@ int main(int argc, char *argv[]) {
         printf("Usage- %d\n", filter_array[i].usage);
     }
 
-    mkfifo("fifo_clientServer", 0644);
-    mkfifo("fifo_serverClient", 0644);
+    mkfifo("tmp/fifo_clientServer", 0644);
+    mkfifo("tmp/fifo_serverClient", 0644);
 
     signal(SIGCHLD, sigchld_handler);
     signal(SIGTERM, sigterm_handler);
@@ -229,8 +229,8 @@ int main(int argc, char *argv[]) {
     //int iLog = 0;
     while (!terminate) {
         char *buffer = malloc(sizeof(char) * MAX);
-        int fifo_clientServer = open("fifo_clientServer", O_RDONLY);
-        int fifo_serverClient = open("fifo_serverClient", O_WRONLY);
+        int fifo_clientServer = open("tmp/fifo_clientServer", O_RDONLY);
+        int fifo_serverClient = open("tmp/fifo_serverClient", O_WRONLY);
 
         if (read(fifo_clientServer, buffer, MAX) < 0)
             strcpy(buffer, "Erro");
@@ -319,11 +319,16 @@ int main(int argc, char *argv[]) {
             //Incrementar os filtros que vao ser usados
             incrementFilters(filter_names2);
 
+            printf("O alto chegou aqui1!\n");
             sprintf(message, "\nProcessing task #%d\n\n", task_number+1);
+            printf("O alto chegou aqui2! %s\n", message);
             write(fifo_serverClient, message, strlen(message));
+            printf("O alto chegou aqui3!\n");
 
             int stdin_faudio = open(args[0], O_RDONLY);
+            printf("O alto chegou aqui4!\n");
             int stdout_faudio = open(args[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            printf("O alto chegou aqui5!\n");
 
             printf("Num filters - %d\n", num_filters);
             printf("FILTER NAMES - %s\n", filter_names3);
@@ -348,6 +353,7 @@ int main(int argc, char *argv[]) {
                             dup2(pipes[currentPipe][1], STDOUT_FILENO);
                             close(pipes[currentPipe][1]);
                         }
+                        sleep(3);
                         execl(getExecPath(token2), getExec(token2), NULL);
                         exit(1);
                     }
