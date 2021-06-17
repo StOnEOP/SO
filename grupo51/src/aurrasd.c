@@ -32,6 +32,7 @@ int terminate = 0;
 int task_number = 0;
 char* task_status[2048];
 char* task_command[2048];
+char* clientPids[2048];
 int total_childs[2048];
 int pids[2048][32];
 int empty_array = 1;
@@ -71,10 +72,15 @@ char* getExecPath(char* token) {
 }
 
 int checkFiltersUsage(char* filters) {
+    //char* filters = strdup(filters2);
     char* token;
+    printf("FILTERS NA FUNCAO - %s\n", filters);
     while ((token = strtok_r(filters, " ", &filters))){
+        printf("Token filtro - %s\n", token);
         for (int i = 0; filter_array[i].name[0]; i++){
+            printf("COmparing %s with %s\n", filter_array[i].name, token);
             if (strcmp(filter_array[i].name, token) == 0){
+                printf("Usage %d vs Total %d\n", filter_array[i].usage ,filter_array[i].total);
                 if (filter_array[i].usage == filter_array[i].total){
                     printf("Usage %d, Total %d\n", filter_array[i].usage, filter_array[i].total);
                     return 1;
@@ -126,6 +132,11 @@ void sigchld_handler(int sig) {
             if (pids[i][total_childs[i] - 1] == pid && strcmp(task_status[i], "EXECUTING") == 0){ 
                 decrementFilters(task_command[i]);
                 task_status[i] = "FINISHED";
+                char fifopath[100];
+                sprintf(fifopath, "tmp/fifo_%s", clientPids[i]);
+                int fifo_clientServer = open(fifopath, O_WRONLY);
+                write(fifo_clientServer, clientPids[i], strlen(clientPids[i]));
+                close(fifo_clientServer);
             }
         }
     }
@@ -200,15 +211,27 @@ int main(int argc, char *argv[]) {
         printf("Usage- %d\n", filter_array[i].usage);
     }
 
-    mkfifo("tmp/fifo_clientServer", 0644);
-    mkfifo("tmp/fifo_serverClient", 0644);
+    mkfifo("tmp/fifo_connection", 0644);
+    //mkfifo("tmp/fifo_serverClient", 0644);
 
     //char **log = malloc(sizeof(char*) * 1);
     //int iLog = 0;
     while (!terminate) {
         char *buffer = malloc(sizeof(char) * MAX);
-        int fifo_clientServer = open("tmp/fifo_clientServer", O_RDONLY);
-        int fifo_serverClient = open("tmp/fifo_serverClient", O_WRONLY);
+        char clientPipeName[50];
+
+        //int fifo_serverClient = open("tmp/fifo_serverClient", O_RDWR);
+
+        printf("Waiting for client\n");
+        int fifo_connection = open("tmp/fifo_connection", O_RDONLY);
+        if(read(fifo_connection, clientPipeName, 50) < 0){
+            strcpy(buffer, "Erro");
+        }
+        close(fifo_connection);
+
+        printf("CLIENT PIPE NAME - %s\n", clientPipeName);
+
+        int fifo_clientServer = open(clientPipeName, O_RDONLY); 
 
         if (read(fifo_clientServer, buffer, MAX) < 0)
             strcpy(buffer, "Erro");
@@ -217,7 +240,9 @@ int main(int argc, char *argv[]) {
             char comandos[] = "\nComandos diponiveis:\n\n"
                                 "./aurras status\n"
                                 "./aurras transform input-filename output-filename filter-id-1 filter-id-2...\n\n";
-            write(fifo_serverClient, comandos, strlen(comandos));
+            int fifo_clientServer = open(clientPipeName, O_WRONLY); 
+            write(fifo_clientServer, comandos, strlen(comandos));
+            close(fifo_clientServer);
         }
         else if (strncmp(buffer, "transform", 9) == 0) { 
             int pipes[32][2];
@@ -230,13 +255,22 @@ int main(int argc, char *argv[]) {
             char* straux = NULL;
             char* straux2 = NULL;
             int counter = 0;
+            int counter2 = 0;
             int fst = 0;
             int fst2 = 0;
             char* v = ", ";
             char* v2 = " ";
+            char* str = strdup(clientPipeName);
 
             task_command[task_number] = strdup(buffer);
             task_status[task_number] = "EXECUTING";
+
+            while ((token = strtok_r(str, "_", &str))){
+                if(counter2 == 1){
+                    clientPids[task_number] = token;
+                }
+                counter2++;
+            }
 
             while ((token = strtok_r(buffer, " ", &buffer))) {
                 if (counter == 3) {
@@ -277,11 +311,13 @@ int main(int argc, char *argv[]) {
             //fazer uma função checkfilter a correr num while para so continuar quando houver filtros disponiveis
             char* filter_names2 = strdup(filter_names);
             char* filter_names3 = strdup(filter_names);
-            while (checkFiltersUsage(filter_names)) {
+            int fifo_clientServer = open(clientPipeName, O_WRONLY); 
+            printf("FILTER NAMES - %s\n", filter_names);
+            while (checkFiltersUsage(filter_names)){
                 if(!fst_time) {
                     fst_time = 1;
-                    sprintf(message, "\nPending task #%d\n\n", task_number+1);
-                    write(fifo_serverClient, message, strlen(message));
+                    sprintf(message, "Pending task #%d\n", task_number+1);
+                    write(fifo_clientServer, message, strlen(message));
                 }
             }
 
@@ -289,7 +325,7 @@ int main(int argc, char *argv[]) {
             incrementFilters(filter_names2);
 
             sprintf(message, "\nProcessing task #%d\n\n", task_number+1);
-            write(fifo_serverClient, message, strlen(message));
+            write(fifo_clientServer, message, strlen(message));
 
             int stdin_faudio = open(args[0], O_RDONLY);
             int stdout_faudio = open(args[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -352,31 +388,56 @@ int main(int argc, char *argv[]) {
             }
             total_childs[task_number] = currentPipe;
             task_number++;
+            close(fifo_clientServer);
         }
 
         else if (strncmp(buffer, "status", 6) == 0) {
             char message[1024];
+            char endmessage[2048];
+            char* token;
+            char* str = strdup (clientPipeName);
+            int counter = 0;
             int empty = 1;
-            strcpy(message, "\nTasks Executing:\n");
-            write(fifo_serverClient, message, strlen(message));
+            strcpy(endmessage, "Tasks Executing:\n");
+            int fifo_clientServer = open(clientPipeName, O_WRONLY); 
+            //write(fifo_clientServer, message, strlen(message));
 
             for (int i = 0; i < task_number; i++)
                 if (strcmp(task_status[i], "EXECUTING") == 0) {
                     empty = 0;
                     sprintf(message, "task #%d: %s\n", i+1, task_command[i]);
-                    write(fifo_serverClient, message, strlen(message));
+                    strcat(endmessage, message);
+                    //write(fifo_clientServer, message, strlen(message));
                 }
             for (int i = 0; filter_array[i].name[0]; i++) {
                 sprintf(message, "filter %s: %d/%d (running/max)\n", filter_array[i].name, filter_array[i].usage, filter_array[i].total);
-                write(fifo_serverClient, message, strlen(message));
+                strcat(endmessage, message);
+                //write(fifo_clientServer, message, strlen(message));
             }
             sprintf(message, "pid: %d\n", getpid());
-            write(fifo_serverClient, message, strlen(message));
-            write(fifo_serverClient, "\n", 1);
+            strcat(endmessage, message);
+            //write(fifo_clientServer, message, strlen(message));
+            strcat(endmessage, "\n");
+            //write(fifo_clientServer, "\n", 1);
             if (empty) {
                 sprintf(message, "There are no tasks executing\n");
-                write(fifo_serverClient, message, strlen(message));
+                strcat(endmessage, message);
+                //write(fifo_clientServer, message, strlen(message));
             }
+            //Codigo para termianar
+            //fifo_connection = open("tmp/fifo_connection", O_WRONLY);
+            while ((token = strtok_r(str, "_", &str))){
+                if(counter == 1){
+                    strcat(endmessage, token);
+                    //write(fifo_clientServer, token, strlen(token));
+                }
+                counter++;
+            }
+            strcat(endmessage, "\0");
+            write(fifo_clientServer, endmessage, strlen(endmessage));
+            //write(fifo_clientServer, '\0', 0);
+            //close(fifo_connection);
+            close(fifo_clientServer);
         }
     }
     return 0;

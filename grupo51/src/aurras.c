@@ -4,11 +4,25 @@
 #include <fcntl.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
 
 #define MAX 2048
 
 //Teste
 // ./bin/aurras transform samples/sample-1-so.m4a tmp/sample-1.m4a alto
+
+size_t readln(int fd, char* line, size_t size) {
+    size_t bytes_read = read(fd, line, size);
+    if(!bytes_read) return 0;
+
+    size_t line_length = strcspn(line, "\n") + 1;
+    if(bytes_read < line_length) line_length = bytes_read;
+    line[line_length] = 0;
+    
+    lseek(fd, line_length - bytes_read, SEEK_CUR);
+    return line_length;
+}
 
 int transformInput(char *arg) {
     if (strcasecmp(arg, "transform") == 0)
@@ -31,25 +45,38 @@ int transformInput(char *arg) {
 
 int main(int argc, char *argv[]) {
     char toServer[MAX], fromServer[MAX];
+    char pipeName[50];
+    char pid[50];
+    
+    sprintf(pid,"%d", getpid());
+    sprintf(pipeName, "tmp/fifo_%d", getpid());
+    mkfifo(pipeName, 0644);
     
     if (argc < 2) {     // INFO
-        int fifo_clientServer = open("tmp/fifo_clientServer", O_WRONLY);
-        int fifo_serverClient = open("tmp/fifo_serverClient", O_RDONLY);
+        //int fifo_clientServer = open(pipeName, O_WRONLY);
+        //int fifo_serverClient = open("tmp/fifo_serverClient", O_RDONLY);
+        int fifo_connection = open("tmp/fifo_connection", O_WRONLY);
+
+        if(write(fifo_connection, pipeName, strlen(pipeName)) < 0){
+            perror("Erro na conexão\n");
+            return -1;
+        }
+        close(fifo_connection);
+
+        int fifo_clientServer = open(pipeName, O_WRONLY);
         
         strcpy(toServer, "ajuda");
         if (write(fifo_clientServer, toServer, strlen(toServer)) < 0) {
             perror("Erro\n\tEscrita no fifo clientServer\n");
-            //close(fifo_clientServer);
-            //close(fifo_serverClient);
             return -1;
         }
         close(fifo_clientServer);
 
+        int fifo_serverClient = open(pipeName, O_RDONLY);
         int bytesread = 0;
         if ((bytesread = read(fifo_serverClient, fromServer, MAX)) > 0)
             if (write(STDOUT_FILENO, fromServer, bytesread) < 0) {
                 perror("Erro\n\tEscrita no stdout\n");
-                //close(fifo_serverClient);
                 return -1;
             }
         close(fifo_serverClient);
@@ -89,8 +116,18 @@ int main(int argc, char *argv[]) {
                 break;
         }
 
-        int fifo_clientServer = open("tmp/fifo_clientServer", O_WRONLY);
-        int fifo_serverClient = open("tmp/fifo_serverClient", O_RDONLY);
+        printf("CLIENT PID - %s\n", pipeName);
+
+        //int fifo_serverClient = open("tmp/fifo_serverClient", O_RDONLY);
+        int fifo_connection = open("tmp/fifo_connection", O_WRONLY);
+
+        if(write(fifo_connection, pipeName, strlen(pipeName)) < 0){
+            perror("Erro na conexão\n");
+            return -1;
+        }
+        close(fifo_connection);
+
+        int fifo_clientServer = open(pipeName, O_WRONLY);
 
         if (write(fifo_clientServer, toServer, strlen(toServer)) < 0) {
             perror("Erro\n\t- escrita no fifo clientServer\n");
@@ -98,12 +135,30 @@ int main(int argc, char *argv[]) {
         }
         close(fifo_clientServer);
 
+        char* token;
+        char* fromBuffer = NULL;
         int bytesread = 0;
-        while ((bytesread = read(fifo_serverClient, fromServer, MAX)) > 0)
-            if (write(STDOUT_FILENO, fromServer, bytesread) < 0) {
-                perror("Erro\n\t- escrita no stdout\n");
-                return -1;
+        int writedbytes = 0;
+        int fifo_serverClient = open(pipeName, O_RDONLY);
+        fromServer[0] = '\0';
+        //memset(fromServer, 0, sizeof(fromServer));
+
+        while((bytesread = read(fifo_serverClient, fromServer, MAX)) > 0){
+            //printf("FRMSV - %s\n", fromServer);
+            //printf("A\n");
+            fromBuffer = strdup(fromServer);
+            while ((token = strtok_r(fromBuffer, "\n", &fromBuffer))){
+                write(STDOUT_FILENO, "\n", 2);
+                if ((writedbytes = write(STDOUT_FILENO, token, strlen(token))) < 0) {
+                    perror("Erro\n\t- escrita no stdout\n");
+                    return -1;
+                }
+                if (strcmp(token, pid) == 0){
+                        break;
+                }
             }
+        }
+        write(STDOUT_FILENO, "\n", 2);
         close(fifo_serverClient);
     }
 
