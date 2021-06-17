@@ -72,17 +72,11 @@ char* getExecPath(char* token) {
 }
 
 int checkFiltersUsage(char* filters) {
-    //char* filters = strdup(filters2);
     char* token;
-    printf("FILTERS NA FUNCAO - %s\n", filters);
     while ((token = strtok_r(filters, " ", &filters))){
-        printf("Token filtro - %s\n", token);
         for (int i = 0; filter_array[i].name[0]; i++){
-            printf("COmparing %s with %s\n", filter_array[i].name, token);
             if (strcmp(filter_array[i].name, token) == 0){
-                printf("Usage %d vs Total %d\n", filter_array[i].usage ,filter_array[i].total);
                 if (filter_array[i].usage == filter_array[i].total){
-                    printf("Usage %d, Total %d\n", filter_array[i].usage, filter_array[i].total);
                     return 1;
                 }
             }
@@ -313,12 +307,15 @@ int main(int argc, char *argv[]) {
             char* filter_names3 = strdup(filter_names);
             int fifo_clientServer = open(clientPipeName, O_WRONLY); 
             printf("FILTER NAMES - %s\n", filter_names);
-            while (checkFiltersUsage(filter_names)){
+            char* filter_names4 = strdup(filter_names);
+            while (checkFiltersUsage(filter_names4)){
+                printf("Dentro do while! - %s\n", filter_names);
                 if(!fst_time) {
                     fst_time = 1;
                     sprintf(message, "Pending task #%d\n", task_number+1);
                     write(fifo_clientServer, message, strlen(message));
                 }
+                strcpy(filter_names4, filter_names);
             }
 
             //Incrementar os filtros que vao ser usados
