@@ -53,8 +53,6 @@ int main(int argc, char *argv[]) {
     mkfifo(pipeName, 0644);
     
     if (argc < 2) {     // INFO
-        //int fifo_clientServer = open(pipeName, O_WRONLY);
-        //int fifo_serverClient = open("tmp/fifo_serverClient", O_RDONLY);
         int fifo_connection = open("tmp/fifo_connection", O_WRONLY);
 
         if(write(fifo_connection, pipeName, strlen(pipeName)) < 0){
@@ -101,24 +99,11 @@ int main(int argc, char *argv[]) {
                 strcpy(toServer, "status");
                 break;
 
-            case 3:     // Exec server (3)
-                strcpy(toServer, "config");
-                int c3 = 1;
-                while (c3 < argc) {
-                    strcat(toServer, argv[c3++]);
-                    if (c3 < argc)
-                        strcat(toServer, " ");
-                }
-                break;
-
             default:
                 strcpy(toServer, "0:");
                 break;
         }
 
-        printf("CLIENT PID - %s\n", pipeName);
-
-        //int fifo_serverClient = open("tmp/fifo_serverClient", O_RDONLY);
         int fifo_connection = open("tmp/fifo_connection", O_WRONLY);
 
         if(write(fifo_connection, pipeName, strlen(pipeName)) < 0){
@@ -141,20 +126,17 @@ int main(int argc, char *argv[]) {
         int writedbytes = 0;
         int fifo_serverClient = open(pipeName, O_RDONLY);
         fromServer[0] = '\0';
-        //memset(fromServer, 0, sizeof(fromServer));
 
         while((bytesread = read(fifo_serverClient, fromServer, MAX)) > 0){
-            //printf("FRMSV - %s\n", fromServer);
-            //printf("A\n");
             fromBuffer = strdup(fromServer);
             while ((token = strtok_r(fromBuffer, "\n", &fromBuffer))){
                 write(STDOUT_FILENO, "\n", 2);
+                if (strcmp(token, pid) == 0){
+                        break;
+                }
                 if ((writedbytes = write(STDOUT_FILENO, token, strlen(token))) < 0) {
                     perror("Erro\n\t- escrita no stdout\n");
                     return -1;
-                }
-                if (strcmp(token, pid) == 0){
-                        break;
                 }
             }
         }
