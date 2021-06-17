@@ -70,7 +70,6 @@ void endTask(int i){
 
 char* getExec(char* token) {
     for(int i= 0; filter_array[i].name[0]; i++){
-        //printf("Comparing %s with %s \n", filter_array[i].name, token);
         if(strcmp(filter_array[i].name, token) == 0)
             return filter_array[i].exec;
     }
@@ -129,7 +128,6 @@ void sigchld_handler(int sig) {
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0){
         for (int i = 0; i <= task_number-1; i++){
             for(int j = 0; j < total_childs[i]; j++){
-                printf("I %d, J %d , Pid = %d compare to Pid = %d\n", i,j, pids[i][j], pid);
                 if (pids[i][j] == pid && WEXITSTATUS(status) == 1) {
                     endTask(i);
                     printf("Child Error\n");
@@ -138,9 +136,7 @@ void sigchld_handler(int sig) {
                     break;
                 }
             } // Se o ultimo filho criado para uma certa task tiver terminado e o status da mesma for executing significa que terminou com sucesso
-            printf("Pids[%d][%d] Pid = %d compare to Pid = %d\n", i, total_childs[i]-1, pids[i][total_childs[i] - 1], pid);
             if (pids[i][total_childs[i] - 1] == pid && strcmp(task_status[i], "EXECUTING") == 0){ 
-                printf("Child finished executing");
                 decrementFilters(task_command[i]);
                 task_status[i] = "FINISHED";
             }
@@ -175,15 +171,12 @@ int main(int argc, char *argv[]) {
     char path[1024];
     char line[1024];
     char* line2;
-    char* bar = "/";
     char* token;
     int counter = 0;
     int counter2 = 0;
     ssize_t bytes_read = 0;
 
     strcpy(path, argv[1]);
-    //strcat(path, bar);
-    //strcat(path, argv[1]);
     printf("Path %s\n", path);
     int fd = open(path, O_RDONLY);
     if(fd == -1) {
@@ -192,10 +185,8 @@ int main(int argc, char *argv[]) {
     }
     else {
         while ((bytes_read = readln(fd, line, 1024))) {
-            //printf("%s\n", line);
             line2 = strdup(line);
             while ((token = strtok_r(line2, " ", &line2))) {
-                //printf("Token %s\n", token);
                 if (counter2 == 0)
                     strcpy(filter_array[counter].name, token);
                 if (counter2 == 1) {
@@ -241,7 +232,7 @@ int main(int argc, char *argv[]) {
                                 "./aurras transform input-filename output-filename filter-id-1 filter-id-2...\n\n";
             write(fifo_serverClient, comandos, strlen(comandos));
         }
-        else if (strncmp(buffer, "transform", 9) == 0) { // ffmpeg -i input.mp3 -filter "filtro_1, filtro_2" output.mp3
+        else if (strncmp(buffer, "transform", 9) == 0) { 
             int pipes[32][2];
             int currentPipe = 0;
             char message [64];
@@ -249,7 +240,6 @@ int main(int argc, char *argv[]) {
             char* token;
             int num_filters = 0;
             char* filter_names = NULL;
-            char * exec_names = NULL;
             char* straux = NULL;
             char* straux2 = NULL;
             int counter = 0;
@@ -262,7 +252,6 @@ int main(int argc, char *argv[]) {
             task_status[task_number] = "EXECUTING";
 
             while ((token = strtok_r(buffer, " ", &buffer))) {
-                printf("BUF %s \n", token);
                 if (counter == 3) {
                     if (!fst2) {
                         fst2 = 1;
@@ -282,7 +271,7 @@ int main(int argc, char *argv[]) {
                 }
                 else {
                     if (fst)
-                        args[counter-1] = strdup(token);  // ffmpeg -i input.mp3 output.mp3 filtro_1 filtro_2
+                        args[counter-1] = strdup(token);
                     fst = 1;
                     counter++;
                 }
@@ -290,15 +279,10 @@ int main(int argc, char *argv[]) {
 
             straux[strlen(straux)-2] = '\0';
             straux2[strlen(straux2)-2] = '\0';
-            //args[0] = straux;
             counter++;
             printf("Filter_names %s \n", filter_names);
             printf("STrAux %s \n", straux);
             printf("STrAux2 %s \n", straux2);
-            //token = args[3];
-            //args[3] = "-filter";
-            //args[counter-1] = token;    // ffmpeg -i input.mp3 -filter "filtro_1 filtro_2" output.mp3
-            printf("BBB\n");
             for(int i = 0; args[i]; i++)
                 printf("Args[%d] - %s\n", i, args[i]);
 
@@ -319,16 +303,11 @@ int main(int argc, char *argv[]) {
             //Incrementar os filtros que vao ser usados
             incrementFilters(filter_names2);
 
-            printf("O alto chegou aqui1!\n");
             sprintf(message, "\nProcessing task #%d\n\n", task_number+1);
-            printf("O alto chegou aqui2! %s\n", message);
             write(fifo_serverClient, message, strlen(message));
-            printf("O alto chegou aqui3!\n");
 
             int stdin_faudio = open(args[0], O_RDONLY);
-            printf("O alto chegou aqui4!\n");
             int stdout_faudio = open(args[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
-            printf("O alto chegou aqui5!\n");
 
             printf("Num filters - %d\n", num_filters);
             printf("FILTER NAMES - %s\n", filter_names3);
@@ -380,7 +359,6 @@ int main(int argc, char *argv[]) {
                 }
                 
                 close(pipes[currentPipe][1]);
-                printf("CurrentPipe value - %d\n", currentPipe);
                 pids[task_number][currentPipe] = pid;
                 if (currentPipe != 0)
                     close(pipes[currentPipe-1][0]);
@@ -388,24 +366,6 @@ int main(int argc, char *argv[]) {
                 i++;
             }
             total_childs[task_number] = currentPipe;
-            printf("SAI DO WHILE!\n");
-            /*
-            if(num_filters != 1){
-                printf("DIF\n");
-                if ((pid = fork()) == 0) {
-                    dup2(stdout_faudio, STDOUT_FILENO);
-                    close(stdout_faudio);
-                    if (currentPipe != 0) {
-                        dup2(pipes[currentPipe-1][0], STDIN_FILENO);
-                        close(pipes[currentPipe-1][0]);
-                    }
-                    execl(getExecPath(token2), getExec(token2), NULL);
-                    exit(1);
-                }
-            }
-            */
-            //printf("FInish cycle\n");
-
             task_number++;
         }
 
