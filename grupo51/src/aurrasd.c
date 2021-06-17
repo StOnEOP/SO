@@ -18,19 +18,6 @@
 TODO 
 - Cliente so pode acabar quando o ficheiro estiver pronto!
 - Quando estao os 2 filtros a ser utilizados o status nao funciona (demora).
-
-Updates:
-Pus o exec a receber o que é suposto (temos muitas linhas de codigo que agora ja nao sao precisas, mas depois
-limpa-se).
-O que penso que seja preciso fazer é um dup2 na linha 300 (antes do fork) em que redirecionamos o stdin
-para o ficheiro audio que é dado como input e o stdout para o ficheiro que é dado para output do programa.
-Nao tenho a certeza mas penso que é isso.
-No fim nao esquecer voltar a por os file descriptors normais. (Ex guiao4 ex 3, e ex 5).
-O processo filho mantem os mesmos file descriptors que o pai e o exec tambem por isso deveria funcionar.
-Apos o redirecionamento penso que o programa ja funcione para inputs em que é dado apenas um filtro.
-Depois disto é corrigir os erros acima no TODO e tentar fazer a cena dos pipes para recebermos mais do
-que um filtro.
-
 */
 
 struct filter {
@@ -151,17 +138,20 @@ void sigterm_handler(int sig) {
 
     while (!tasks_terminated) {
         counter = 0;
-        for (int i = 0; i<= task_number; i++)
+        for (int i = 0; i<= task_number-1; i++)
             if (strcmp(task_status[i], "EXECUTING") == 0)
                 counter++;
         if (!counter)
             tasks_terminated = 1;
-        //sleep(3);
     }
 }
 
 
 int main(int argc, char *argv[]) {
+
+    signal(SIGCHLD, sigchld_handler);
+    signal(SIGTERM, sigterm_handler);
+
     //Configuring server
     if(argc != 3) {
         perror("Invalid arguments to start the server\n");
@@ -212,9 +202,6 @@ int main(int argc, char *argv[]) {
 
     mkfifo("tmp/fifo_clientServer", 0644);
     mkfifo("tmp/fifo_serverClient", 0644);
-
-    signal(SIGCHLD, sigchld_handler);
-    signal(SIGTERM, sigterm_handler);
 
     //char **log = malloc(sizeof(char*) * 1);
     //int iLog = 0;
@@ -296,8 +283,6 @@ int main(int argc, char *argv[]) {
                     sprintf(message, "\nPending task #%d\n\n", task_number+1);
                     write(fifo_serverClient, message, strlen(message));
                 }
-                printf("Cheguei \n");
-                sleep(3);
             }
 
             //Incrementar os filtros que vao ser usados
