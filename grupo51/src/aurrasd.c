@@ -309,7 +309,6 @@ int main(int argc, char *argv[]) {
             printf("FILTER NAMES - %s\n", filter_names);
             char* filter_names4 = strdup(filter_names);
             while (checkFiltersUsage(filter_names4)){
-                printf("Dentro do while! - %s\n", filter_names);
                 if(!fst_time) {
                     fst_time = 1;
                     sprintf(message, "Pending task #%d\n", task_number+1);
